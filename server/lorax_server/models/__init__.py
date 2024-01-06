@@ -56,10 +56,13 @@ try:
     from lorax_server.models.flash_santacoder import (
         FlashSantacoderSharded,
     )
+    from lorax_server.models.flash_mistral import FlashMistral
+    from lorax_server.models.flash_mixtral import FlashMixtral
 
 except ImportError as e:
     logger.warning(f"Could not import Flash Attention enabled models: {e}")
     FLASH_ATTENTION = False
+    HAS_FLASH_ATTN_V2_CUDA = False
 
 if FLASH_ATTENTION:
     __all__.append(FlashNeoXSharded)
@@ -69,25 +72,7 @@ if FLASH_ATTENTION:
     __all__.append(FlashGPT2)
     __all__.append(FlashQwen)
     __all__.append(FlashPhi)
-    
-MISTRAL = True
-try:
-    from lorax_server.models.flash_mistral import FlashMistral
-except ImportError as e:
-    logger.warning(f"Could not import Mistral model: {e}")
-    MISTRAL = False
-
-MIXTRAL = True
-try:
-    from lorax_server.models.flash_mixtral import FlashMixtral
-except ImportError as e:
-    logger.warning(f"Could not import Mixtral model: {e}")
-    MIXTRAL = False
-
-if MISTRAL:
     __all__.append(FlashMistral)
-
-if MIXTRAL:
     __all__.append(FlashMixtral)
 
 
@@ -307,7 +292,7 @@ def get_model(
                 )
 
     if model_type == "mistral":
-        if MISTRAL:
+        if config_dict["sliding_window"] is None and FLASH_ATTENTION:
             return FlashMistral(
                 model_id,
                 adapter_id,
@@ -318,10 +303,9 @@ def get_model(
                 dtype=dtype,
                 trust_remote_code=trust_remote_code,
             )
-        raise NotImplementedError("Mistral model requires flash attention v2")
     
     if model_type == "mixtral":
-        if MIXTRAL:
+        if config_dict["sliding_window"] is None and FLASH_ATTENTION:
             return FlashMixtral(
                 model_id,
                 adapter_id,
@@ -332,7 +316,6 @@ def get_model(
                 dtype=dtype,
                 trust_remote_code=trust_remote_code,
             )
-        raise NotImplementedError("Mixtral models requires flash attention v2, stk and megablocks")
     
     if model_type == "qwen":
         if FLASH_ATTENTION:

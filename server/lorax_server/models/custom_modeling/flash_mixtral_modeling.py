@@ -28,12 +28,12 @@ from torch import nn
 from transformers.activations import ACT2FN
 from transformers.configuration_utils import PretrainedConfig
 from typing import Optional, List, Tuple
+from loguru import logger
 
 # Flash attention imports
 import dropout_layer_norm
 
 from lorax_server.utils import paged_attn, flash_attn
-from lorax_server.utils.flash_attn import HAS_FLASH_ATTN_V2
 from lorax_server.utils.layers import (
     FastLinear,
     TensorParallelAdapterRowLinear,
@@ -47,13 +47,12 @@ from lorax_server.utils.layers import (
 )
 from lorax_server.utils.lora import AdapterBatchData, LM_HEAD
 
-if not HAS_FLASH_ATTN_V2:
-    raise ImportError("Mixtral model requires flash attn v2")
-
+HAS_MEGABLOCKS = True
 try:
     import megablocks.ops as ops
 except ImportError:
-    raise ImportError("Mixtral model requires megablocks to be installed")
+    logger.warning("Mixtral: megablocks is not installed")
+    HAS_MEGABLOCKS = False
 
 try:
     import stk
@@ -714,7 +713,7 @@ class BlockSparseMoE(nn.Module):
         return out
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if len(x) > 256:
+        if len(x) > 256 and HAS_MEGABLOCKS:
             return self.sparse_forward(x)
         # This is faster when there is not a lot of tokens
         return self.dense_forward(x)
